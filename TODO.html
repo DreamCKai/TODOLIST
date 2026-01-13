@@ -1,0 +1,1040 @@
+<!--/**
+ * Copyright (c) [2025] [Bohao.Zhang] [DreamCKai.github]
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ */-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>简易待办清单</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+
+        }
+
+		#app {
+			position: relative;
+		    max-width: 800px;
+		    margin: auto;
+		    background-color: #f8f8f8;
+		    overflow: hidden;
+			min-height: 100vh; /* 确保父容器始终有高度 */
+		}
+
+		/* 侧边栏样式 */
+		.sidebar {
+		    position: absolute;
+		    left: 0;
+		    top: 0;
+		    width: 200px;
+		    height: 100%;
+		    background-color: #f5f5f5;
+		    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+		    transition: transform 0.3s ease-out; /* 自定义缓动曲线 */
+		    z-index: 1000;
+		    padding: 20px;
+		    box-sizing: border-box;
+		}
+
+		.sidebar.collapsed {
+		    transform: translateX(-180px);
+		}
+		/* 悬停时短暂展开触发条 */
+		.sidebar.collapsed:hover {
+    		transform: translateX(calc(-100% + 30px));
+    		transition: transform 0.2s ease-out;
+		}
+		.sidebar-toggle {
+		    position: absolute;
+		    right: 10px;
+		    top: 10px;
+		    cursor: pointer;
+		    font-size: 20px;
+		    background: none;
+		    border: none;
+		}
+		.sidebar-content {
+		    margin-top: 30px;
+		}
+		.sidebar-content button{
+		    margin-top: 10px;
+		}
+		/* 侧边栏样式 */
+
+		/*待办事项区样式*/
+		.container {
+		    position: relative;
+		    margin-left: 200px; /* 侧边栏宽度 */
+		    width: calc(100% - 240px); /* 200px + 40px 留白 */
+		    padding: 20px;
+		    transition: all 0.3s ease;
+		    background-color: white;
+		    /* 使用 transform 替代 display 切换 */
+		    transform: translateX(0);
+		    opacity: 1;
+		}
+        
+        .container.full-width {
+            margin-left: 20px;
+        }
+
+		/* 折叠状态 */
+		.container.collapsed {
+		    transform: translateX(100%);
+		    opacity: 0;
+		    pointer-events: none; /* 禁用交互 */
+		}
+
+		/* 侧边栏折叠时的调整 */
+		.sidebar.collapsed ~ .container {
+		    margin-left: 20px;     /* 折叠时取消左侧间距 */
+		    width: calc(100% - 40px);        /* 占满父容器宽度 */
+		}
+
+        .input-group {
+            display: flex;
+            margin-bottom: 20px;
+        }
+		
+		/* 控制行样式 */
+		.control-row {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin: 15px 0;
+			gap: 15px;
+		}
+		
+		/* 筛选按钮组 */
+		.filter-group {
+			display: flex;
+			gap: 8px;
+		}
+		
+		.filter-group button {
+			padding: 6px 12px;
+			background: #e0e0e0;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 14px;
+			transition: all 0.2s;
+		}
+		
+		.filter-group button:hover {
+			background: #d0d0d0;
+		}
+
+		.filter-group button.active {
+		    background: #2196F3;  /* 蓝色背景 */
+		    color: white;
+		    box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);  /* 投影效果 */
+		}
+		
+		/* 排序控制区域 */
+		.sort-controls {
+			margin: 20px 0;
+			padding: 10px;
+			background: #f8f8f8;
+			border-radius: 4px;
+		}
+		
+		.sort-options {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-bottom: 8px;
+		}
+		
+		/* 排序下拉菜单 */
+		.sort-controls select {
+			padding: 6px 12px;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			font-size: 14px;
+			background: white;
+			cursor: pointer;
+		}
+		
+		.sort-controls select:hover {
+			border-color: #bbb;
+		}
+		
+		.sort-options button {
+			padding: 6px 12px;
+			background: #e0e0e0;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 14px;
+			transition: all 0.2s;
+		}
+		
+		.sort-options button:hover {
+			background: #d0d0d0;
+			transform: translateY(-1px);
+		}
+		
+		/* 移除原来的排序样式 */
+		.current-sort {
+			display: none;
+		}
+		
+		/* 优先级视觉样式 */
+		li.low-priority {
+			border-left: 4px solid #4CAF50; /* 绿色 */
+		}
+		li.medium-priority {
+			border-left: 4px solid #FFC107; /* 黄色 */
+		}
+		li.high-priority {
+			border-left: 4px solid #F44336; /* 红色 */
+		}
+		
+		.priority-select {
+			display: none;
+			position: absolute;
+			background: white;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			padding: 5px;
+			z-index: 10;
+			box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+		}
+		
+		.priority-badge {
+			cursor: pointer;
+			user-select: none;
+		}
+		
+		.high-priority .priority-badge {
+			background: #ffebee;
+			color: #c62828;
+		}
+		.medium-priority .priority-badge {
+			background: #fff8e1;
+			color: #ff8f00;
+		}
+		.low-priority .priority-badge {
+			background: #e8f5e9;
+			color: #2e7d32;
+		}
+		
+		.priority-options {
+			display: flex;
+			flex-direction: column;
+			gap: 3px;
+		}
+		
+		.priority-option {
+			padding: 3px 8px;
+			border-radius: 3px;
+			cursor: pointer;
+		}
+		
+		.priority-option:hover {
+			background: #f0f0f0;
+		}
+		
+		.high-option { color: #c62828; }
+		.medium-option { color: #ff8f00; }
+		.low-option { color: #2e7d32; }
+
+        #taskInput {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .container ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container li {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            background-color: #f8f8f8;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .container li:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .completed {
+            background-color: #e8e8e8;
+            text-decoration: line-through;
+            color: #666;
+        }
+
+        .delete-btn {
+            margin-left: auto;
+            background-color: #ff4444;
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+
+        .delete-btn:hover {
+            background-color: #cc0000;
+        }
+		
+		.complete-btn, .delete-btn {
+			background: none;
+			border: none;
+			cursor: pointer;
+			font-size: 16px;
+			padding: 0 5px;
+		}
+
+		.complete-btn:hover, .delete-btn:hover {
+			opacity: 0.7;
+		}
+
+
+        .clear-all {
+            background-color: #ff4444;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+            background: #e0e0e0 !important;
+        }
+
+        .drag-over {
+            border-top: 2px solid #4CAF50;
+        }
+		
+		/* 编辑相关样式 */
+		.edit-form {
+			transition: all 0.3s ease;
+			max-height: 0;
+			overflow: hidden;
+		}
+		
+		.edit-form[style*="display: block"] {
+			max-height: 200px;
+		}
+		
+		.edit-form input {
+			padding: 8px;
+			width: 60%;
+			margin-right: 5px;
+		}
+		
+		.edit-form select {
+			padding: 8px;
+			margin-right: 5px;
+		}
+		
+		.edit-form button {
+			padding: 8px 12px;
+		}
+		
+		.task-content {
+			display: flex;
+			align-items: center;
+			width: 100%;
+			position: relative;
+		}
+		
+		.task-text {
+			cursor: pointer;
+		}
+		
+		.task-text:hover {
+			text-decoration: underline;
+		}
+		
+		.task-view, .task-edit {
+			display: inline-block;
+		}
+		
+		.task-edit-input {
+			border: none;
+			background: transparent;
+			font: inherit;
+			padding: 0;
+			margin: 0;
+			width: auto;
+			outline: none;
+			border-bottom: 1px dashed #999;
+		}
+		
+		.task-view, .task-edit-input {
+			flex-grow: 1;
+			text-align: left;
+			padding-left: 10px;
+			min-width: 0; /* 防止文本溢出 */
+		}
+		
+		.edit-buttons {
+			display: flex;
+			gap: 5px;
+		}
+
+		/*待办事项区样式*/
+    </style>
+</head>
+<body>
+	<div id="app">
+		<!-- 侧边栏 -->
+		<div class="sidebar" id="sidebar" onclick="toggleSidebar(event)">
+			<!--<button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>-->
+			<div class="sidebar-content">
+				<h3>控制面板</h3>
+				<button onclick="toggleTodoArea(event)">切换待办事项</button>
+				<button onclick="toggleCompletedArea(event)">切换已完成事项</button>
+				<!-- 可以在这里添加其他控制选项 -->
+			</div>
+		</div>
+		<!-- 待办事项区 -->
+		<div class="container" id="mainContainer" onclick="toggleSidebar(event)">
+			<h1>待办事项 📝</h1>
+			<div class="controls">
+				<div class="input-group">
+					<input type="text" id="taskInput" placeholder="输入新任务...">
+					<select id="prioritySelect">
+						<option value="low" selected>低优先级</option>
+						<option value="medium">中优先级</option>
+						<option value="high">高优先级</option>
+					</select>
+					<button onclick="addTask()">添加任务</button>
+				</div>
+
+				<!-- 合并后的筛选和排序控制行 -->
+				<div class="control-row">
+					<div class="filter-group">
+						<button data-priority="all" onclick="filterTasks('all')">全部</button>
+						<button data-priority="high" onclick="filterTasks('high')">高</button>
+						<button data-priority="medium" onclick="filterTasks('medium')">中</button>
+						<button data-priority="low" onclick="filterTasks('low')">低</button>
+					</div>
+
+					<div class="sort-controls">
+						<select id="sortSelect" onchange="sortTasks(this.value)">
+							<option value="added" selected>添加时间 ▼</option>
+							<option value="added-desc">添加时间 ▲</option>
+							<option value="priority">优先级 ▼</option>
+							<option value="priority-asc">优先级 ▲</option>
+						</select>
+					</div>
+				</div>
+			</div>
+			<ul id="taskList"></ul>
+			<button class="clear-all" onclick="clearAllTasks()">清除所有任务</button>
+		</div>
+		<!-- 已完成事项区 -->
+		<div id="completedContainer" class="container" onclick="toggleSidebar(event)">
+		    <h2>已完成事项</h2>
+			<ul id="completedTaskList"></ul>
+			<button class="clear-all" onclick="clearAllCompletedTasks()">清除所有任务</button>
+		</div>
+	</div>
+
+    <script>
+		// 拖拽相关变量
+        let dragSrcEl = null;
+        let currentDragIndex = -1;
+		
+		// 修改初始化代码，设置默认排序选项
+		document.addEventListener('DOMContentLoaded', () => {
+			loadTasks();
+			loadcompletedTasks();
+			initDragAndDrop();
+			filterTasks('all');
+			
+			// 设置默认状态
+            document.getElementById('mainContainer').style.display = 'block';
+
+			// 设置上次的排序方式或默认排序
+			const savedSort = localStorage.getItem('taskSortPreference') || 'added';
+			document.getElementById('sortSelect').value = savedSort;
+			sortTasks(savedSort);
+			
+			// 确保优先级选择器存在（如果HTML中还没有）
+			if (!document.getElementById('prioritySelect')) {
+				const inputGroup = document.querySelector('.input-group');
+				if (inputGroup) {
+					const prioritySelect = document.createElement('select');
+					prioritySelect.id = 'prioritySelect';
+					prioritySelect.innerHTML = `
+						<option value="low">低优先级</option>
+						<option value="medium" selected>中优先级</option>
+						<option value="high">高优先级</option>
+					`;
+					const addButton = inputGroup.querySelector('button');
+					if (addButton) {
+						inputGroup.insertBefore(prioritySelect, addButton);
+					}
+				}
+			}
+		});
+
+        // 初始化拖拽事件
+        function initDragAndDrop() {
+            const list = document.getElementById('taskList');
+            
+            list.addEventListener('dragstart', function(e) {
+                dragSrcEl = e.target.closest('li');
+                dragSrcEl.classList.add('dragging');
+                currentDragIndex = Array.from(list.children).indexOf(dragSrcEl);
+            });
+
+            list.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                const target = e.target.closest('li:not(.dragging)');
+                if (!target) return;
+
+                const rect = target.getBoundingClientRect();
+                const nextIndex = (e.clientY < rect.top + rect.height / 2) ?
+                    Array.from(list.children).indexOf(target) :
+                    Array.from(list.children).indexOf(target) + 1;
+
+                list.querySelectorAll('li').forEach(li => li.classList.remove('drag-over'));
+                target.classList.add('drag-over');
+            });
+
+            list.addEventListener('dragend', function(e) {
+                list.querySelectorAll('li').forEach(li => {
+                    li.classList.remove('dragging', 'drag-over');
+                });
+                updateTaskOrder();
+            });
+
+            list.addEventListener('drop', function(e) {
+                e.preventDefault();
+                const target = e.target.closest('li');
+                if (!target || !dragSrcEl) return;
+
+                const newIndex = Array.from(list.children).indexOf(target);
+                if (currentDragIndex !== newIndex) {
+                    const tasks = getTasks();
+                    const [movedTask] = tasks.splice(currentDragIndex, 1);
+                    tasks.splice(newIndex, 0, movedTask);
+                    saveTasks(tasks);
+                    rebuildList(tasks);
+                }
+            });
+        }
+		
+        // 更新任务顺序显示
+		function rebuildList(tasks) {
+			const list = document.getElementById('taskList');
+			list.innerHTML = '';
+			tasks.forEach(task => addTaskToList(task));
+		}
+
+        // 添加任务（支持回车键）
+        document.getElementById('taskInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addTask();
+        });
+
+		// 侧边栏控制函数
+		function toggleSidebar(event) {
+			const sidebar = document.getElementById('sidebar');
+			let isSidebar = event.target.classList.contains('sidebar');
+			if(!isSidebar){
+				let isSidebarCollapsed = sidebar.classList.contains('collapsed');
+				if(isSidebarCollapsed)return;
+			}
+		    sidebar.classList.toggle('collapsed');
+		    //body.classList.toggle('sidebar-expanded');
+		}
+        
+        function toggleTodoArea(event) {
+			event.stopPropagation();
+			const container = document.getElementById('mainContainer');
+			container.style.display = container.style.display === 'none' ? 'block' : 'none';
+			//const container = document.getElementById('mainContainer');
+    		//container.classList.toggle('collapsed');
+				
+    		// 可选：折叠时缩小侧边栏留白
+    		//const sidebar = document.querySelector('.sidebar');
+    		//sidebar.style.width = container.classList.contains('collapsed') ? '0' : '200px';
+        }
+
+		// 新增切换函数
+		function toggleCompletedArea(event) {
+		    event.stopPropagation();
+		    const container = document.getElementById('completedContainer');
+		    container.style.display = container.style.display === 'none' ? 'block' : 'none';
+		    
+			//const container = document.getElementById('completedContainer');
+    		//container.classList.toggle('collapsed');
+		}
+
+		// 优先级常量定义
+		const PRIORITY_WEIGHT = {
+			'high': 3,
+			'medium': 2,
+			'low': 1
+		};
+		
+		// addTask函数
+		function addTask() {
+			const input = document.getElementById('taskInput');
+			const priority = document.getElementById('prioritySelect').value;
+			const taskText = input.value.trim();
+			
+			if (!taskText) return;
+			
+			const task = {
+				text: taskText,
+				completed: false,
+				id: Date.now(),
+				priority: priority
+			};
+			
+			const tasks = getTasks();
+			tasks.push(task);
+			saveTasks(tasks);
+			addTaskToList(task);
+			input.value = '';
+			
+			// 添加后保持当前排序
+			const currentSort = localStorage.getItem('taskSortPreference') || 'added';
+			sortTasks(currentSort);
+		}
+		
+		// addTaskToList函数
+		function addTaskToList(task) {
+			const li = document.createElement('li');
+			li.dataset.id = task.id;
+			li.draggable = true;
+			li.className = `${task.priority}-priority ${task.completed ? 'completed' : ''}`;
+			
+			li.innerHTML = `
+				<div class="task-content">
+					<span class="priority-badge" onclick="showPrioritySelect(${task.id})">
+						${getPriorityLabel(task.priority)}
+					</span>
+					
+					<div class="priority-select" id="priority-select-${task.id}">
+						<div class="priority-options">
+							<div class="priority-option high-option" onclick="changePriority(${task.id}, 'high')">高</div>
+							<div class="priority-option medium-option" onclick="changePriority(${task.id}, 'medium')">中</div>
+							<div class="priority-option low-option" onclick="changePriority(${task.id}, 'low')">低</div>
+						</div>
+					</div>
+					
+					<span class="task-view">${task.text}</span>
+					<input class="task-edit-input" value="${task.text}" style="display:none">
+					
+					<div class="edit-buttons">
+						<button class="complete-btn" onclick="toggleComplete(${task.id})">✓</button>
+						<button class="delete-btn" onclick="deleteTask(${task.id})">×</button>
+					</div>
+				</div>
+			`;
+			
+			document.getElementById('taskList').appendChild(li);
+			setupTextEdit(li, task.id);
+		}
+		
+		// 设置文本编辑功能
+		function setupTextEdit(li, taskId) {
+			const taskView = li.querySelector('.task-view');
+			const taskEdit = li.querySelector('.task-edit-input');
+			let originalText = taskView.textContent;
+			
+			// 点击任务文本开始编辑
+			taskView.addEventListener('click', function() {
+				taskView.style.display = 'none';
+				taskEdit.style.display = 'inline-block';
+				taskEdit.value = originalText;
+				taskEdit.focus();
+				taskEdit.select();
+			});
+			
+			// 失焦时处理
+			taskEdit.addEventListener('blur', function() {
+				const newText = taskEdit.value.trim();
+				
+				if (newText && newText !== originalText) {
+					// 保存更改
+					const tasks = getTasks();
+					const task = tasks.find(t => t.id === taskId);
+					if (task) {
+						task.text = newText;
+						saveTasks(tasks);
+						taskView.textContent = newText;
+						originalText = newText;
+					}
+				}
+				
+				taskEdit.style.display = 'none';
+				taskView.style.display = 'inline-block';
+			});
+			
+			// 支持回车保存
+			taskEdit.addEventListener('keydown', function(e) {
+				if (e.key === 'Enter') {
+					taskEdit.blur();
+				}
+			});
+		}
+		
+		// 显示优先级选择菜单
+		function showPrioritySelect(taskId) {
+			// 隐藏所有其他优先级选择菜单
+			document.querySelectorAll('.priority-select').forEach(select => {
+				select.style.display = 'none';
+			});
+			
+			const select = document.getElementById(`priority-select-${taskId}`);
+			select.style.display = 'block';
+			
+			// 点击其他地方关闭菜单
+			const closeHandler = function(e) {
+				if (!select.contains(e.target) && e.target.className !== 'priority-badge') {
+					select.style.display = 'none';
+					document.removeEventListener('click', closeHandler);
+				}
+			};
+			
+			setTimeout(() => {
+				document.addEventListener('click', closeHandler);
+			}, 0);
+		}
+		
+		// 更改优先级
+		function changePriority(taskId, newPriority) {
+			const tasks = getTasks();
+			const task = tasks.find(t => t.id === taskId);
+			
+			if (task && task.priority !== newPriority) {
+				task.priority = newPriority;
+				saveTasks(tasks);
+				
+				// 更新UI
+				const li = document.querySelector(`li[data-id="${taskId}"]`);
+				li.className = `${newPriority}-priority ${task.completed ? 'completed' : ''}`;
+				li.querySelector('.priority-badge').textContent = getPriorityLabel(newPriority);
+				
+				// 重新排序
+				const currentSort = localStorage.getItem('taskSortPreference') || 'added';
+				sortTasks(currentSort);
+			}
+			
+			// 隐藏选择菜单
+			document.getElementById(`priority-select-${taskId}`).style.display = 'none';
+		}
+		
+		// 开始编辑任务
+		function startEditTask(id) {
+			// 隐藏所有其他编辑表单
+			document.querySelectorAll('.edit-form').forEach(form => {
+				form.style.display = 'none';
+			});
+			
+			// 显示当前编辑表单
+			const editForm = document.getElementById(`edit-form-${id}`);
+			editForm.style.display = 'block';
+			
+			// 聚焦到输入框
+			const input = document.getElementById(`edit-input-${id}`);
+			input.focus();
+			input.select();
+		}
+		
+		// 保存编辑
+		function saveEdit(id) {
+			const newText = document.getElementById(`edit-input-${id}`).value.trim();
+			const newPriority = document.getElementById(`edit-priority-${id}`).value;
+			
+			if (!newText) {
+				alert('任务内容不能为空');
+				return;
+			}
+			
+			const tasks = getTasks();
+			const taskIndex = tasks.findIndex(t => t.id === id);
+			
+			if (taskIndex !== -1) {
+				tasks[taskIndex].text = newText;
+				tasks[taskIndex].priority = newPriority;
+				saveTasks(tasks);
+				
+				// 重新构建列表以应用更改
+				rebuildList(tasks);
+				
+				// 恢复之前的排序
+				const currentSort = localStorage.getItem('taskSortPreference') || 'added';
+				sortTasks(currentSort);
+			}
+		}
+		
+		// 取消编辑
+		function cancelEdit(id) {
+			document.getElementById(`edit-form-${id}`).style.display = 'none';
+		}
+		
+		// 在edit-input元素上添加keydown事件监听
+		document.getElementById(`edit-input-${id}`).addEventListener('keydown', function(e) {
+			if (e.key === 'Enter') saveEdit(id);
+			if (e.key === 'Escape') cancelEdit(id);
+		});
+		
+		// 新增辅助函数
+		function getPriorityLabel(priority) {
+			const labels = {
+				'low': '低',
+				'medium': '中',
+				'high': '高'
+			};
+			return labels[priority] || '';
+		}
+		
+		// 完整的排序功能实现
+		function sortTasks(sortBy) {
+			const tasks = getTasks();
+			
+			switch(sortBy) {
+				case 'priority': // 高>中>低
+					tasks.sort((a, b) => PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority]);
+					break;
+				case 'priority-asc': // 低>中>高
+					tasks.sort((a, b) => PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority]);
+					break;
+				case 'added': // 旧>新
+					tasks.sort((a, b) => a.id - b.id);
+					break;
+				case 'added-desc': // 新>旧
+					tasks.sort((a, b) => b.id - a.id);
+					break;
+			}
+			
+			saveTasks(tasks);
+			rebuildList(tasks);
+			
+			// 更新UI状态
+			const sortText = {
+				'priority': '优先级 ▼',
+				'priority-asc': '优先级 ▲',
+				'added': '添加时间 ▼',
+				'added-desc': '添加时间 ▲'
+			};
+			document.querySelector('.current-sort').textContent = `当前排序: ${sortText[sortBy]}`;
+			
+			// 保存排序偏好
+			localStorage.setItem('taskSortPreference', sortBy);
+			
+			// 更新下拉菜单选中状态
+			document.getElementById('sortSelect').value = sortBy;
+			localStorage.setItem('taskSortPreference', sortBy);
+		}
+		
+		function filterTasks(priority) {
+		    // 移除所有按钮的激活状态
+		    const buttons = document.querySelectorAll('.filter-group button');
+		    buttons.forEach(btn => btn.classList.remove('active'));
+		
+		    // 添加当前按钮的激活状态
+		    const activeBtn = document.querySelector(`button[data-priority="${priority}"]`);
+		    if (activeBtn) activeBtn.classList.add('active');
+		
+		    // 原有筛选逻辑
+		    const tasks = getTasks();
+		    const list = document.getElementById('taskList');
+		    list.innerHTML = '';
+		    if (priority === 'all') {
+		        tasks.forEach(addTaskToList);
+		    } else {
+		        tasks.filter(t => t.priority === priority)
+		            .forEach(addTaskToList);
+		    }
+		}
+
+        function updateTaskOrder() {
+            const list = document.getElementById('taskList');
+            const newOrder = Array.from(list.children).map(li => parseInt(li.dataset.id));
+            const tasks = getTasks();
+            
+            // 根据DOM顺序重新排序数组
+            const sortedTasks = newOrder.map(id => 
+                tasks.find(task => task.id === id)
+            ).filter(Boolean);
+            
+            saveTasks(sortedTasks);
+        }
+
+        function toggleComplete(id) {
+            const tasks = getTasks();
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            
+            task.completed = !task.completed;
+            saveTasks(tasks);
+            
+            const listItem = document.querySelector(`li[data-id="${id}"]`);
+            listItem.classList.toggle('completed');
+        }
+
+        function deleteTask(id) {
+			const completedTask = getTasks().find(t => t.id === id);
+			addcompletedTask(completedTask);
+            const tasks = getTasks().filter(t => t.id !== id);
+            saveTasks(tasks);
+            document.querySelector(`li[data-id="${id}"]`).remove();
+        }
+
+        function clearAllTasks() {
+            if (confirm('确定要删除所有任务吗？')) {
+                localStorage.removeItem('tasks');
+                document.getElementById('taskList').innerHTML = '';
+            }
+        }
+
+        // 本地存储相关函数
+        function saveTasks(tasks = getTasks()) {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+		function getTasks() {
+			const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+			// 确保每个任务都有优先级
+			return tasks.map(task => {
+				if (!task.priority) {
+					task.priority = 'low';
+				}
+				return task;
+			});
+		}
+
+        function loadTasks() {
+            const tasks = getTasks();
+            tasks.forEach(addTaskToList);
+        }
+
+		//已完成事项相关函数
+		function savecompletedTasks(completedTasks = getcompletedTasks()) {
+            localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+        }
+
+		function getcompletedTasks() {
+			const completedTasks = JSON.parse(localStorage.getItem('completedTasks') || '[]');
+			// 确保每个任务都有优先级
+			return completedTasks.map(completedTask => {
+				if (!completedTask.completed) {
+					completedTask.completed = true;
+				}
+				return completedTask;
+			});
+		}
+
+        function loadcompletedTasks() {
+            const completedTasks = getcompletedTasks();
+            completedTasks.forEach(addcompletedTaskToList);
+        }
+
+		// addcompletedTask
+		function addcompletedTask(completedTask) {
+			completedTask.completed = true;
+			const completedTasks = getcompletedTasks();
+			completedTasks.push(completedTask);
+			savecompletedTasks(completedTasks);
+			addcompletedTaskToList(completedTask);
+			
+		}
+
+		// addcompletedTaskToList函数
+		function addcompletedTaskToList(completedTask) {
+			const li = document.createElement('li');
+			li.dataset.id = completedTask.id;
+			li.draggable = true;
+			li.className = `${completedTask.priority}-priority }`;
+			
+			li.innerHTML = `
+				<div class="task-content">
+					<span class="priority-badge" onclick="showPrioritySelect(${completedTask.id})">
+						${getPriorityLabel(completedTask.priority)}
+					</span>
+					
+					<div class="priority-select" id="priority-select-${completedTask.id}">
+						<div class="priority-options">
+							<div class="priority-option high-option" onclick="changePriority(${completedTask.id}, 'high')">高</div>
+							<div class="priority-option medium-option" onclick="changePriority(${completedTask.id}, 'medium')">中</div>
+							<div class="priority-option low-option" onclick="changePriority(${completedTask.id}, 'low')">低</div>
+						</div>
+					</div>
+					
+					<span class="task-view">${completedTask.text}</span>
+					<input class="task-edit-input" value="${completedTask.text}" style="display:none">
+					
+					<div class="edit-buttons">
+						<button onclick="undoCompletedTask(${completedTask.id})">复原</button>
+						<button onclick="deleteCompletedTask(${completedTask.id})">删除</button>
+					</div>
+				</div>
+			`;
+			
+			document.getElementById('completedTaskList').appendChild(li);
+			setupTextEdit(li, completedTask.id);
+		}
+
+		function clearAllCompletedTasks() {
+            if (confirm('确定要删除所有已完成事项吗？')) {
+                localStorage.removeItem('completedTasks');
+                document.getElementById('completedTaskList').innerHTML = '';
+            }
+        }
+
+		function deleteCompletedTask(id){
+			let r=confirm("确认删除吗？");
+			if (r==true)
+			{
+			    const completedTasks = getcompletedTasks().filter(t => t.id !== id);
+				savecompletedTasks(completedTasks);
+				document.querySelector(`li[data-id="${id}"]`).remove();
+			}
+
+		}
+
+		function undoCompletedTask(id){
+			const task = getcompletedTasks().find(t => t.id === id);
+			deleteCompletedTask(id);
+			const tasks = getTasks();
+			tasks.push(task);
+			saveTasks(tasks);
+			addTaskToList(task);
+		}
+    </script>
+	
+</body>
+</html>
